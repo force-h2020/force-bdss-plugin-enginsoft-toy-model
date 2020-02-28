@@ -1,0 +1,3 @@
+[force.bdss.extensions]
+ES_example = es_example.es_plugin:ESPlugin
+
