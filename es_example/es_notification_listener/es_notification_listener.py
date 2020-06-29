@@ -31,10 +31,10 @@ class ESNotificationListener(BaseNotificationListener):
                   event.parameter_names,
                   event.kpi_names)
         elif isinstance(event, MCOProgressEvent):
+            #print("ESNotificationListener - SONO QUI")
             print(event.__class__.__name__,
                   [dv.value for dv in event.optimal_point],
-                  [dv.value for dv in event.optimal_kpis],
-                  event.weights)
+                  [dv.value for dv in event.optimal_kpis])
         elif isinstance(event, MCOFinishEvent):
             print(event.__class__.__name__)
         else:
@@ -44,7 +44,9 @@ class ESNotificationListener(BaseNotificationListener):
     #: They are executing when the BDSS starts up (or ends) and can be
     #: used to setup a database connection once and for all.
     def initialize(self, model):
-        print("Initializing")
+        #print("Initializing")
+        pass
 
     def finalize(self):
-        print("Finalizing")
+        #print("Finalizing")
+        pass

@@ -16,8 +16,10 @@ class ESDataSource(BaseDataSource):
         #d = rw_in.getData()
         #XX = d["force.X"]
         #YY = d["force.Y"]
-        XX = parameters["force.X"]
-        YY = parameters["force.Y"]
+        #XX = parameters["force.X"]
+        #YY = parameters["force.Y"]
+        XX = parameters[0].value
+        YY = parameters[1].value
 
         d_out = {}
         #if ( parameters[0]:
@@ -38,7 +40,14 @@ class ESDataSource(BaseDataSource):
         d_out["force.V"] = V
         #rw_out.writeData(d_out)
         #result = XX + YY
-        result = d_out
+        #result = d_out
+        
+        #result = [
+        #    d_out["force.S"], d_out["force.T"], d_out["force.V"]
+        #]
+        result = [
+            S, T, V
+        ]
         
         return result
     
@@ -51,21 +60,30 @@ class ESDataSource(BaseDataSource):
     #: output slots.
     def run(self, model, parameters):
         d = parameters[0].value
-        print("d =")
-        print(d)
+        #print("d =")
+        #print(d)
         values = [p.value for p in parameters]
-        print('values=')
-        print(values)
+        #print('values=')
+        #print(values)
         value_types = [p.type for p in parameters]
-        print('value_types=')
-        print(value_types)
-        #result = self.run_simulation(model, parameters)
-        result = self.run_simulation(model, d)
+        #print('value_types=')
+        #print(value_types)
+        result = self.run_simulation(model, parameters)
+        #result = self.run_simulation(model, d)
         return [
             DataValue(
-                type=model.cuba_type_out,
-                value=result
-            )]
+                type="S",
+                value=result[0]
+            ),
+            DataValue(
+                type="T",
+                value=result[1]
+            ),
+            DataValue(
+                type="V",
+                value=result[2]
+            )
+            ]
 
     #: If a data source is a function, the slots are the number of arguments
     #: it takes as input, and the number of entities it returns as output.
@@ -87,9 +105,22 @@ class ESDataSource(BaseDataSource):
     def slots(self, model):
         return (
             (
-                Slot(type=model.cuba_type_in),
+                (
+                    Slot(type="METER", description="ray")
+                ),
+                (
+                    Slot(type="METER", description="heigth")
+                )
             ),
             (
-                Slot(type=model.cuba_type_out),
+                (
+                    Slot(type="S", description="Lateral surface")
+                ),
+                (
+                    Slot(type="T", description="Cone surface")
+                ),
+                (
+                    Slot(type="V", description="Volume")
+                )
             )
         )

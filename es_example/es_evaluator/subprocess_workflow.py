@@ -1,0 +1,162 @@
+import logging
+import os
+import subprocess
+import tempfile
+from .FileReaderWriter import FileReaderWriter
+
+from traits.api import Unicode, File
+
+from force_bdss.api import Workflow, WorkflowWriter
+
+log = logging.getLogger(__name__)
+
+
+class SubprocessWorkflow(Workflow):
+    """A subclass of WorkflowSolver that spawns a subprocess to
+     evaluate a single point."""
+
+    #: File path of the Workflow object
+    workflow_filepath = File(transient=True)
+
+    #: The path to the force_bdss executable
+    executable_path = Unicode(transient=True)
+
+    def _call_subprocess(self, command, user_input):
+        """Calls a subprocess to perform a command with parsed
+        user_input"""
+
+        log.info("Spawning subprocess: {}".format(command))
+
+        # Setting ETS_TOOLKIT=null before executing bdss prevents it
+        # from trying to create GUI every call, giving reducing the
+        # overhead by a factor of 2.
+        env = {**os.environ, "ETS_TOOLKIT": "null"}
+
+        #scrivo il file data.txt con i dati di input
+        rw_out = FileReaderWriter("./data.txt")
+        d_out = {}
+        d_keys = ["force.X", "force.Y"]
+        for i in range(len(d_keys)):
+            d_out[d_keys[i]]=user_input[i]
+        rw_out.writeData(d_out)
+
+        # Spawn the single point evaluation, which is the bdss itself
+        # with the option evaluate.
+        # We pass the specific parameter values via stdin, and read
+        # the result via stdout.
+
+        process = subprocess.Popen(
+            command,
+            env=env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+
+        log.info("Sending values: {}".format(user_input))
+        stdout, stderr = process.communicate(
+            " ".join(user_input).encode("utf-8")
+        )
+        print("stdout = ")
+        print(stdout)
+        print("stderr = ")
+        print(stderr)
+        return stdout
+
+    def _subprocess_evaluate(self, parameter_values, filepath):
+        """Executes the workflow using the given parameter values
+        running on an external process via the subprocess library.
+        Values for each parameter in thw workflow to calculate a
+        single point
+        """
+
+        # This command calls a force_bdss executable on another process
+        # to evaluate workflow serialized in filepath at a state determined
+        # by the parameter values. A BaseMCOCommunicator will be needed
+        # to be defined in the workflow to receive the data and send
+        # back values corresponding to each KPI via the command line.
+        command = [self.executable_path,
+                   "--logfile",
+                   "bdss.log",
+                   "--evaluate",
+                   filepath]
+
+        # Converts the parameter values to a string to send via
+        # subprocess
+        string_values = [str(v) for v in parameter_values]
+        print("string_values = ")
+        print(string_values)
+        # Call subprocess to perform executable with user input
+        stdout = self._call_subprocess(command, string_values)
+
+        # Decode stdout into KPI float values
+        #kpi_values = [float(x) for x in stdout.decode("utf-8").split()]
+        kpi_values = [str(x) for x in stdout.decode("utf-8").split()]
+        kpi_values = []
+        for x in stdout.decode("utf-8").split():
+            try:
+                kpi_values.append(float(x))
+            except:
+                pass
+
+        return kpi_values
+
+    def evaluate(self, parameter_values):
+        """Public method to evaluate the workflow at a given set of
+        MCO parameter values
+
+        Parameters
+        ----------
+        parameter_values: iterable
+            List of values to assign to each BaseMCOParameter defined
+            in the workflow
+
+        Returns
+        -------
+        kpi_results: list
+            List of values corresponding to each MCO KPI in the
+            workflow
+        """
+
+        try:
+            # If a path to a workflow file is assigned, then use this
+            # as a reference, otherwise generate a temporary file and
+            # save a copy of this Workflow instance there
+            if self.workflow_filepath:
+                #print("1")
+                #print("parameter_values=")
+                #print(parameter_values)
+                return self._subprocess_evaluate(
+                    parameter_values, self.workflow_filepath)
+            else:
+                #print("2")
+                with tempfile.NamedTemporaryFile() as tmp_file:
+                    #print("2.1")
+                    #print("parameter_values=")
+                    #print(parameter_values)
+                    writer = WorkflowWriter()
+                    #writer.write(self, tmp_file.name)
+                    temp_filename = os.getcwd()
+                    plugin_path = os.path.join(os.getcwd(), "force-bdss-plugin-es-example")
+                    if ( os.path.exists(plugin_path) ):
+                        temp_filename = os.path.join(plugin_path, "tmp.txt")
+                    else: 
+                        temp_filename = os.path.join(os.getcwd(), "tmp.txt")
+                    writer.write(self, temp_filename)
+                    #writer.write(self, "D:\\users\\Progetti\\GitHub\\Force-Project\\force-bdss-plugin-es-example\\tmp.txt")
+                    #return self._subprocess_evaluate(
+                    #    parameter_values, tmp_file.name)
+                    #return self._subprocess_evaluate(
+                    #    parameter_values, "D:\\users\\Progetti\\GitHub\\Force-Project\\force-bdss-plugin-es-example\\tmp.txt")
+                    return self._subprocess_evaluate(
+                        parameter_values, temp_filename)
+
+        except Exception:
+            message = (
+                'SubprocessWorkflow failed '
+                'to run. This is likely due to an error in the '
+                'BaseMCOCommunicator assigned to {}.'.format(
+                    self.mco_model.factory.__class__)
+            )
+            log.exception(message)
+            raise RuntimeError(message)

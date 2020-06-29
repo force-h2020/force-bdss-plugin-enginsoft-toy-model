@@ -35,19 +35,19 @@ class ESMCOCommunicator(BaseMCOCommunicator):
         #print(rw.getData())
         #print(parameters)
         d = rw_in.getData()
-        print("d =")
-        print(d)
+        #print("d =")
+        #print(d)
         #XX = d["force.X"]
         #YY = d["force.Y"]
         #data = sys.stdin.read()
         #values = list(map(float, data.split()))
         values = list(map(float, d.values()))
-        print("values =")
+        print("es_mco_communicator SONO QUI values =")
         print(values)
         value_names = [p.name for p in model.parameters]
-        print(value_names)
+        #print(value_names)
         value_types = [p.type for p in model.parameters]
-        print(value_types)
+        #print(value_types)
 
         # The values must be given a type. The MCO may pass raw numbers
         # with no type information. You are free to use metadata your MCO may
@@ -59,8 +59,9 @@ class ESMCOCommunicator(BaseMCOCommunicator):
         #    for type_, name, value in zip(
         #        value_types, value_names, values)]
         return [
-            DataValue(type=value_types[0], name=value_names[0], value=d)
-            ]
+            DataValue(type=type_, name=name, value=value)
+            for type_, name, value in zip(
+                value_types, value_names, values)]
 
 
     def send_to_mco(self, model, data_values):
@@ -72,12 +73,18 @@ class ESMCOCommunicator(BaseMCOCommunicator):
         You will receive a list of data values that are your KPIs as exiting
         from the evaluation pipeline.
         """
+        
         data = " ".join([str(dv.value) for dv in data_values])
         sys.stdout.write(data)
-        print("data_values = ")
         rw_out = FileReaderWriter("./data_out.txt")
-        for dv in data_values:
-            print(dv.value)
-            rw_out.writeData(dv.value)
+        #trasforno i data_values in dizionario
+        d_out = {}
+        d_keys = ["force.S", "force.T", "force.V"]
+        for i in range(len(d_keys)):
+            d_out[d_keys[i]]=data_values[i].value
+        rw_out.writeData(d_out)
+        #for dv in data_values:
+        #    print(dv.value)
+        #    rw_out.writeData(dv.value)
         
         
